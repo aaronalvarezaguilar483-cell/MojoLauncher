@@ -111,7 +111,11 @@ public class LayoutBitmaps {
                 Bitmap outBitmap = bitmapEntry.getValue();
                 if(outBitmap == null) continue;
                 zipOutputStream.putNextEntry(new ZipEntry(bitmapEntry.getKey()));
-                outBitmap.compress(Bitmap.CompressFormat.WEBP, 100, zipOutputStream);
+                if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    outBitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, zipOutputStream);
+                } else {
+                    outBitmap.compress(Bitmap.CompressFormat.WEBP, 100, zipOutputStream);
+                }
                 zipOutputStream.closeEntry();
             }
         }
