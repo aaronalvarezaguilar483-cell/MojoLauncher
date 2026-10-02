@@ -351,5 +351,6 @@
     <string name="mcl_button_open_directory">Abrir directorio del juego</string>
     <string name="local_login_bad_username_title">Nombre de usuario inadecuado</string>
     <string name="local_login_bad_username_text">El nombre de usuario debe de ser entre 3 a 16 caracteres, y solo contener letras latinas, números de 0 a 9 y guiones bajos.</string>
-    <string name="quick_setting_title">Configuraciones rápidas</string>
+    <string name="quick_setting_title">Configuraciones rápidas</string><string name="customctrl_stick_bitmap">Imagen de la palanca</string>
+<string name="customctrl_joystick_remove_bitmaps">Quitar imágenes del joystick</string>
 </resources>
