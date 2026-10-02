@@ -21,7 +21,7 @@ import android.widget.TextView;
 import com.kdt.SideDialogView;
 
 import net.kdt.pojavlaunch.CustomControlsActivity;
-import net.kdt.pojavlaunch.utils.KeycodeUtils;
+import net.kdt.pojavlaunch.EfficientAndroidLWJGLKeycode;
 import git.artdeell.mojo.R;
 import net.kdt.pojavlaunch.Tools;
 import net.kdt.pojavlaunch.colorselector.ColorSelector;
@@ -70,6 +70,7 @@ public class EditControlSideDialog extends SideDialogView {
     private SeekBar mStrokeWidthSeekbar, mCornerRadiusSeekbar, mAlphaSeekbar;
     private TextView mStrokePercentTextView, mCornerRadiusPercentTextView, mAlphaPercentTextView;
     private TextView mSelectBackgroundBitmap, mSelectBackgroundColor, mSelectStrokeColor;
+    private TextView mSelectStickBitmap, mRemoveJoystickBitmaps;
     private ArrayAdapter<String> mAdapter;
     private List<String> mSpecialArray;
     private CheckBox mDisplayInGameCheckbox, mDisplayInMenuCheckbox;
@@ -189,11 +190,13 @@ public class EditControlSideDialog extends SideDialogView {
             if (data.keycodes[i] < 0) {
                 mKeycodeSpinners[i].setSelection(data.keycodes[i] + mSpecialArray.size());
             } else {
-                mKeycodeSpinners[i].setSelection(KeycodeUtils.getIndexByValue(data.keycodes[i]) + mSpecialArray.size());
+                mKeycodeSpinners[i].setSelection(EfficientAndroidLWJGLKeycode.getIndexByValue(data.keycodes[i]) + mSpecialArray.size());
             }
         }
 
         setHasBitmap(Tools.isValidString(data.bitmapTag));
+        mSelectStickBitmap.setVisibility(GONE);
+        mRemoveJoystickBitmaps.setVisibility(GONE);
 
         Context viewContext = mCurrentlyEditedButton.getControlView().getContext();
 
@@ -255,7 +258,12 @@ public class EditControlSideDialog extends SideDialogView {
         mAbsoluteTrackingSwitch.setVisibility(VISIBLE);
         mAbsoluteTrackingSwitch.setChecked(data.absolute);
 
-        mSelectBackgroundBitmap.setVisibility(GONE);
+        // Image selection is only available in the editor (same restriction as for buttons)
+        boolean inEditor = mCurrentlyEditedButton.getControlView().getContext() instanceof CustomControlsActivity;
+        int imageVisibility = inEditor ? VISIBLE : GONE;
+        mSelectBackgroundBitmap.setVisibility(imageVisibility);
+        mSelectStickBitmap.setVisibility(imageVisibility);
+        mRemoveJoystickBitmaps.setVisibility(imageVisibility);
     }
 
     /**
@@ -284,7 +292,7 @@ public class EditControlSideDialog extends SideDialogView {
         mSpecialArray = ControlData.buildSpecialButtonArray();
 
         mAdapter.addAll(mSpecialArray);
-        mAdapter.addAll(KeycodeUtils.generateKeyName());
+        mAdapter.addAll(EfficientAndroidLWJGLKeycode.generateKeyName());
         mAdapter.setDropDownViewResource(android.R.layout.simple_list_item_single_choice);
 
         for (Spinner spinner : mKeycodeSpinners) {
@@ -348,6 +356,8 @@ public class EditControlSideDialog extends SideDialogView {
         mCornerRadiusSeekbar = mDialogContent.findViewById(R.id.editCornerRadius_seekbar);
         mAlphaSeekbar = mDialogContent.findViewById(R.id.editButtonOpacity_seekbar);
         mSelectBackgroundBitmap = mDialogContent.findViewById(R.id.setBackgroundBitmap_textView);
+        mSelectStickBitmap = mDialogContent.findViewById(R.id.setStickBitmap_textView);
+        mRemoveJoystickBitmaps = mDialogContent.findViewById(R.id.removeJoystickBitmaps_textView);
         mSelectBackgroundColor = mDialogContent.findViewById(R.id.editBackgroundColor_textView);
         mSelectStrokeColor = mDialogContent.findViewById(R.id.editStrokeColor_textView);
         mStrokePercentTextView = mDialogContent.findViewById(R.id.editStrokeWidth_textView_percent);
@@ -481,7 +491,7 @@ public class EditControlSideDialog extends SideDialogView {
                 if (position < mSpecialArray.size()) {
                     mCurrentlyEditedButton.getProperties().keycodes[finalI] = mKeycodeSpinners[finalI].getSelectedItemPosition() - mSpecialArray.size();
                 } else {
-                    mCurrentlyEditedButton.getProperties().keycodes[finalI] = KeycodeUtils.getValueByIndex(mKeycodeSpinners[finalI].getSelectedItemPosition() - mSpecialArray.size());
+                    mCurrentlyEditedButton.getProperties().keycodes[finalI] = EfficientAndroidLWJGLKeycode.getValueByIndex(mKeycodeSpinners[finalI].getSelectedItemPosition() - mSpecialArray.size());
                 }
                 mKeycodeTextviews[finalI].setText((String) mKeycodeSpinners[finalI].getSelectedItem());
             });
@@ -550,6 +560,50 @@ public class EditControlSideDialog extends SideDialogView {
             if(context instanceof CustomControlsActivity) {
                 ((CustomControlsActivity)context).startCropping(receiver);
             }
+        });
+
+        mSelectStickBitmap.setOnClickListener(v -> {
+            if(!(mCurrentlyEditedButton.getProperties() instanceof ControlJoystickData)) return;
+            final View mTargetView = mCurrentlyEditedButton.getControlView();
+            CropperUtils.CropperReceiver receiver = new CropperUtils.CropperReceiver() {
+                @Override
+                public float getAspectRatio() {
+                    return 1f; // The stick image is square
+                }
+
+                @Override
+                public int getTargetMaxSide() {
+                    return Math.max(mTargetView.getWidth(), mTargetView.getHeight());
+                }
+
+                @Override
+                public void onCropped(Bitmap contentBitmap) {
+                    ControlJoystickData joystickData = (ControlJoystickData) mCurrentlyEditedButton.getProperties();
+                    LayoutBitmaps storage = mCurrentlyEditedButton.getControlLayoutParent().getBitmaps();
+                    joystickData.stickBitmapTag = storage.putBitmap(contentBitmap, joystickData.stickBitmapTag);
+                    mCurrentlyEditedButton.setBackground();
+                }
+
+                @Override
+                public void onFailed(Exception exception) {
+                    Tools.showError(mTargetView.getContext(), exception);
+                }
+            };
+            Context context = mTargetView.getContext();
+            if(context instanceof CustomControlsActivity) {
+                ((CustomControlsActivity)context).startCropping(receiver);
+            }
+        });
+
+        mRemoveJoystickBitmaps.setOnClickListener(v -> {
+            if(!(mCurrentlyEditedButton.getProperties() instanceof ControlJoystickData)) return;
+            ControlJoystickData joystickData = (ControlJoystickData) mCurrentlyEditedButton.getProperties();
+            LayoutBitmaps storage = mCurrentlyEditedButton.getControlLayoutParent().getBitmaps();
+            storage.putBitmap(null, joystickData.bitmapTag);
+            storage.putBitmap(null, joystickData.stickBitmapTag);
+            joystickData.bitmapTag = null;
+            joystickData.stickBitmapTag = null;
+            mCurrentlyEditedButton.setBackground();
         });
 
         mSelectBackgroundColor.setOnClickListener(v -> {
